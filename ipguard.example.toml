@@ -1,0 +1,45 @@
+# Cấu hình ipguard. Chép thành ipguard.toml rồi sửa.
+# Mật khẩu proxy để trong biến môi trường, file này chỉ tham chiếu ${TEN_BIEN}.
+
+# Engine trình duyệt theo thứ tự đổi khi gặp challenge (giữ nguyên IP).
+# Chỉ liệt kê engine mà flow của bạn khởi tạo được.
+engines = ["patchright_chrome"]
+
+[state]
+backend = "file"                 # file: 1 process | redis: nhiều worker | memory: không lưu
+path = "ipguard_state.json"      # tương đối với thư mục chứa file này
+# backend = "redis"
+# url = "${REDIS_URL}"           # vd. redis://localhost:6379/0
+# key = "ipguard"
+
+[health]
+enabled = true
+geo_url = "https://ipinfo.io/json"   # dịch vụ tra IP ra + quốc gia, gọi qua từng proxy
+
+[policy]
+# Chỉ ghi khóa muốn đổi; xem ipguard/config.py để biết đủ danh sách và mặc định.
+ip_domain_daily_bookings = 4
+ip_daily_bookings_total = 40
+domain_max_concurrency = 2
+health_interval_s = 1800
+
+# Mỗi [[proxy]] = 1 lối ra cố định (sticky). Với gateway: mỗi session id cố định là 1 proxy.
+[[proxy]]
+id = "vn-isp-1"
+url = "${PX_VN_1}"               # http://user-session-a:pass@gw:8000
+country = "VN"
+kind = "isp"                     # isp | residential | mobile | datacenter
+
+[[proxy]]
+id = "vn-isp-2"
+url = "${PX_VN_2}"
+country = "VN"
+kind = "isp"
+
+[[proxy]]
+id = "sg-res-1"
+url = "${PX_SG_1}"
+country = "SG"
+kind = "residential"
+# timezone = "Asia/Singapore"    # tùy chọn, mặc định suy ra từ country
+# locale = "en-SG"

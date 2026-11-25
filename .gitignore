@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Test / tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime output (browser profiles, screenshots, state with exit IPs)
+bench_out/
+profiles/
+
+# Local config / secrets
+ipguard.toml
+.env

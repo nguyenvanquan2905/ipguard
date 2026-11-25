@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ipguard"
+version = "0.2.0"
+description = "Chống ban IP cho agent đặt bàn: IP cố định, nhịp chậm, khoanh vùng khi bị chặn"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+redis = ["redis>=5"]
+browser = ["patchright"]
+test = ["pytest"]
+
+[project.scripts]
+ipguard = "ipguard.__main__:main"
+
+[tool.setuptools]
+packages = ["ipguard"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
