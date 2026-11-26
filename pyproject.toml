@@ -13,6 +13,7 @@ dependencies = []
 [project.optional-dependencies]
 redis = ["redis>=5"]
 browser = ["patchright"]
+agent = ["browser-use==1.0.8"]   # ipguard/browser_use_adapter.py + sandbox/
 test = ["pytest"]
 
 [project.scripts]

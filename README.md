@@ -139,6 +139,53 @@ Các nền tảng mà ToS cấm tự động hóa nên đi qua API đối tác h
 - **Rò rỉ WebRTC/DNS** trong trình duyệt chưa được kiểm tra (mới kiểm tra timezone + ngôn ngữ).
 - **Mã 4xx khác** (404, 400…) đang được tính là OK. **Ngày** tính hạn mức theo giờ Việt Nam.
 
+## Agent browser-use + sandbox
+
+`ipguard/browser_use_adapter.py` nối ipguard vào agent [browser-use](https://github.com/browser-use/browser-use) 1.0
+(agent LLM tự viết Python điều khiển Chrome qua CDP). Vì browser-use 1.0 không nhận proxy/timezone cho
+trình duyệt local và agent có toàn quyền trên trang, ipguard **tự mở Chrome** theo lease (proxy, profile
+theo user/domain, `--lang`) và đứng cạnh agent bằng một kết nối CDP riêng:
+
+| Bất biến | Cách giữ |
+|---|---|
+| Mọi lượt tải trang của mọi tab đi qua `before_navigation()` | `Fetch` chặn ở bước request, giữ nhịp rồi mới cho đi |
+| Mọi response document được phân loại; tín hiệu xấu -> dừng agent | `Network` + `classify()`, hủy task agent -> `StopFlow` |
+| Không POST nào lọt ra trước `mark_submitted()` | `Fetch` trả 204 (trang giữ nguyên, site không nhận gì); chỉ tool `submit_booking` mở cổng, đúng 1 lần |
+| Timezone/ngôn ngữ khớp IP, không lộ headless | override qua CDP; UA + Sec-CH-UA bỏ `HeadlessChrome`; `navigator.webdriver = false` |
+| Kết quả đặt bàn do trang quyết định, không do LLM | `submit_booking` đọc trang sau khi gửi, gọi `mark_booked()` |
+
+```python
+from ipguard.browser_use_adapter import ENGINES, browser_use_flow
+ab = AntiBan(proxies, engines=ENGINES)
+flow = browser_use_flow("Đặt bàn 4 khách ...", "http://nhahang.vn/dat-ban", llm=ChatOpenAI("..."))
+r = await ab.book("nhahang.vn", user_id, flow, country="VN", request_id=order_id)
+```
+
+**Sandbox** (`sandbox/`, khép kín, chỉ stdlib): website đặt bàn giả lập nhiều domain `*.sandbox.test`
+(12 kịch bản chống bot), 6 proxy giả lập IP ra (có 1 proxy lệch geo, 1 proxy chết), dịch vụ tra IP giả,
+và bẫy rò rỉ cho request đi vòng qua trình duyệt. Mỗi kịch bản so kết quả ipguard với *sự thật phía site*
+(request nào, từ IP nào, form nào thật sự được POST, timezone trình duyệt báo về).
+
+```
+pip install -e .[agent] && browser-use install          # + Google Chrome
+python -m sandbox.run_agent --llm scripted              # agent kịch bản, không gọi LLM (14 kịch bản)
+python -m sandbox.run_agent                             # LLM thật: $OPENAI_API_KEY, $OPENAI_MODEL
+python -m sandbox.run_agent ok en --model <m> --base-url http://localhost:11434/v1   # model local
+IPGUARD_SANDBOX=1 python -m pytest -q tests/test_sandbox_agent.py
+python -m sandbox.infra                                 # mở sandbox để xem bằng tay
+```
+
+Báo cáo từng kịch bản: `sandbox_out/<kịch bản>/report.json`.
+
+Giới hạn đã biết của tích hợp browser-use:
+- REPL của agent có `http_get()` và chạy Python trên máy: request kiểu này **không đi qua proxy của lease**.
+  Adapter cấm điều này trong system message nhưng không chặn được về mặt kỹ thuật; sandbox phát hiện qua
+  bẫy `HTTP(S)_PROXY` (kịch bản `rogue`). Production nên chạy worker trong mạng chỉ ra được qua proxy.
+- Chrome tự gửi traffic nền (google.com, gstatic…) qua proxy của lease. Đã tắt bớt bằng cờ, vẫn còn.
+- Proxy có user:pass chưa hỗ trợ cho Chrome (dùng proxy whitelist IP).
+- Cổng submit dựa trên method POST: site gửi xác nhận bằng GET thì cổng không nhận ra.
+- `qwen2.5:7b` (Ollama) không đủ sức chạy agent browser-use 1.0.
+
 ## Test
 
 ```

@@ -14,6 +14,7 @@ venv/
 
 # Runtime output (browser profiles, screenshots, state with exit IPs)
 bench_out/
+sandbox_out/
 profiles/
 
 # Local config / secrets
